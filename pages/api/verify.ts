@@ -23,13 +23,18 @@ async function handler(
   const headerAuthToken = req.headers.authorization?.replace(/^Bearer /, "");
   const cookieAuthToken = req.cookies["privy-token"];
 
+  console.log('API - Header Auth Token:', headerAuthToken || 'Not provided');
+  console.log('API - Cookie Auth Token:', cookieAuthToken || 'Not provided');
+
   const authToken = cookieAuthToken || headerAuthToken;
   if (!authToken) return res.status(401).json({ error: "Missing auth token" });
 
   try {
     const claims = await client.verifyAuthToken(authToken);
+    console.log('API - Verified Claims:', claims);
     return res.status(200).json({ claims });
   } catch (e: any) {
+    console.error('API - Token verification error:', e.message);
     return res.status(401).json({ error: e.message });
   }
 }
