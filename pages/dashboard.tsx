@@ -30,23 +30,8 @@ function logAuthTokens() {
 
 // Function to log the user object being sent to custom endpoint
 function logBody(user: any) {
-  console.log('Request Body - User Object:');
-  
-  // Log important user properties
-  console.log('- User ID:', user?.id || 'Not available');
-  console.log('- Email:', user?.email?.address || 'Not available');
-  console.log('- Wallet Address:', user?.wallet?.address || 'Not available');
-  
-  // Log linked accounts
-  console.log('- Linked Accounts:', user?.linkedAccounts?.length || 0);
-  if (user?.linkedAccounts?.length > 0) {
-    user.linkedAccounts.forEach((account: any, index: number) => {
-      console.log(`  Account ${index + 1}:`, account.type);
-    });
-  }
   
   // Log complete user object with pretty-print
-  console.log('- Complete User Object:');
   console.log(JSON.stringify(user, null, 2));
 }
 
@@ -77,14 +62,9 @@ async function sendToPrivyAuthEndpoint(user: any) {
     const accessToken = await getAccessToken();
     console.log('Sending to custom endpoint - Access Token:', accessToken);
     
-    // Log the request body contents
-    console.log('Logging request body before sending:');
-    logBody(user);
-    
-    // From your server code: "if (!bodyAuthToken) return res.status(401)..."
-    // It seems bodyAuthToken is expected to be the actual user data
+    // The actual user data from usePrivy()
     const requestBody = {
-      bodyAuthToken: user  // The actual user data from usePrivy()
+      bodyAuthToken: user  
     };
     
     console.log('Sending request body:', requestBody);
@@ -107,9 +87,35 @@ async function sendToPrivyAuthEndpoint(user: any) {
   }
 }
 
+// Function to fetch character profile
+async function fetchCharacterProfile(jwtToken: string) {
+  try {
+    console.log('Fetching character profile with JWT token:', jwtToken);
+    
+    const response = await fetch('http://localhost:8000/api/v1/character/profile', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwtToken}`
+      }
+    });
+    
+    const data = await response.json();
+    console.log('Character profile response:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching character profile:', error);
+    return { error: 'Failed to fetch character profile' };
+  }
+}
+
 export default function DashboardPage() {
   const [verifyResult, setVerifyResult] = useState();
   const [customEndpointResult, setCustomEndpointResult] = useState();
+  const [authTokenResult, setAuthTokenResult] = useState<any>();
+  const [characterProfile, setCharacterProfile] = useState<any>();
+  const [tokenCopied, setTokenCopied] = useState(false);
   const router = useRouter();
   const {
     ready,
@@ -156,6 +162,20 @@ export default function DashboardPage() {
   const googleSubject = user?.google?.subject || null;
   const twitterSubject = user?.twitter?.subject || null;
   const discordSubject = user?.discord?.subject || null;
+
+  // Function to copy token to clipboard
+  const copyTokenToClipboard = () => {
+    if (authTokenResult?.data?.token) {
+      navigator.clipboard.writeText(authTokenResult.data.token)
+        .then(() => {
+          setTokenCopied(true);
+          setTimeout(() => setTokenCopied(false), 2000);
+        })
+        .catch(err => {
+          console.error('Failed to copy token:', err);
+        });
+    }
+  };
 
   return (
     <>
@@ -319,7 +339,21 @@ export default function DashboardPage() {
                 onClick={() => sendToPrivyAuthEndpoint(user).then(setCustomEndpointResult)}
                 className="text-sm bg-violet-600 hover:bg-violet-700 py-2 px-4 rounded-md text-white border-none"
               >
-                Send to Custom Endpoint
+                POST for authentication
+              </button>
+
+              <button
+                onClick={() => {
+                  if (authTokenResult?.data?.token) {
+                    fetchCharacterProfile(authTokenResult.data.token).then(setCharacterProfile);
+                  } else {
+                    console.error('No JWT token available. Please get auth token first.');
+                    alert('Please get auth token first by clicking "Get Auth Token"');
+                  }
+                }}
+                className="text-sm bg-violet-600 hover:bg-violet-700 py-2 px-4 rounded-md text-white border-none"
+              >
+                GET Character Profile
               </button>
 
               {Boolean(verifyResult) && (
@@ -340,6 +374,49 @@ export default function DashboardPage() {
                   </summary>
                   <pre className="max-w-4xl bg-slate-700 text-slate-50 font-mono p-4 text-xs sm:text-sm rounded-md mt-2">
                     {JSON.stringify(customEndpointResult, null, 2)}
+                  </pre>
+                </details>
+              )}
+
+              {Boolean(authTokenResult) && (
+                <details className="w-full" open>
+                  <summary className="mt-6 font-bold uppercase text-sm text-gray-600">
+                    Auth Token
+                  </summary>
+                  
+                  {authTokenResult?.data?.token && (
+                    <div className="mt-4 mb-4">
+                      <div className="flex items-center">
+                        <h3 className="text-md font-semibold">JWT Token:</h3>
+                        <button
+                          onClick={copyTokenToClipboard}
+                          className="ml-2 px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded"
+                        >
+                          {tokenCopied ? 'Copied!' : 'Copy'}
+                        </button>
+                      </div>
+                      <div className="mt-2 p-3 bg-gray-100 rounded-md overflow-x-auto">
+                        <code className="text-sm break-all">{authTokenResult.data.token}</code>
+                      </div>
+                      <p className="mt-2 text-sm text-gray-600">
+                        This token has been set as cookies: 'auth_token' (HTTP-only).
+                      </p>
+                    </div>
+                  )}
+                  
+                  <pre className="max-w-4xl bg-slate-700 text-slate-50 font-mono p-4 text-xs sm:text-sm rounded-md mt-2">
+                    {JSON.stringify(authTokenResult, null, 2)}
+                  </pre>
+                </details>
+              )}
+
+              {Boolean(characterProfile) && (
+                <details className="w-full">
+                  <summary className="mt-6 font-bold uppercase text-sm text-gray-600">
+                    Character Profile
+                  </summary>
+                  <pre className="max-w-4xl bg-slate-700 text-slate-50 font-mono p-4 text-xs sm:text-sm rounded-md mt-2">
+                    {JSON.stringify(characterProfile, null, 2)}
                   </pre>
                 </details>
               )}
