@@ -71,6 +71,7 @@ async function sendToPrivyAuthEndpoint(user: any) {
     
     const response = await fetch('http://localhost:8000/api/v1/auth/privyAuth', {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`
@@ -80,7 +81,20 @@ async function sendToPrivyAuthEndpoint(user: any) {
     
     const data = await response.json();
     console.log('Response from custom endpoint:', data);
-    return data;
+    
+    // Store the authentication token result
+    if (data.status === 'success') {
+      console.log('JWT Token received:', data.data.token);
+      // Store the JWT token in localStorage
+      localStorage.setItem('harvestia_token', data.data.token);
+      console.log('JWT Token stored in localStorage');
+      return data;
+    } else {
+      console.error('Failed to retrieve token:', data.message);
+      // Clear the token from localStorage if authentication failed
+      localStorage.removeItem('harvestia_token');
+      return { error: data.message };
+    }
   } catch (error) {
     console.error('Error sending data to custom endpoint:', error);
     return { error: 'Failed to send data to custom endpoint' };
@@ -108,6 +122,11 @@ async function fetchCharacterProfile(jwtToken: string) {
     console.error('Error fetching character profile:', error);
     return { error: 'Failed to fetch character profile' };
   }
+}
+
+// Add a function to get the token from localStorage
+function getStoredJwtToken() {
+  return localStorage.getItem('jwt_token');
 }
 
 export default function DashboardPage() {
@@ -336,7 +355,13 @@ export default function DashboardPage() {
               </button>
 
               <button
-                onClick={() => sendToPrivyAuthEndpoint(user).then(setCustomEndpointResult)}
+                onClick={() => sendToPrivyAuthEndpoint(user).then(result => {
+                  setCustomEndpointResult(result);
+                  // Store the auth token result when we get a successful response
+                  if (result.status === 'success') {
+                    setAuthTokenResult(result);
+                  }
+                })}
                 className="text-sm bg-violet-600 hover:bg-violet-700 py-2 px-4 rounded-md text-white border-none"
               >
                 POST for authentication
@@ -344,11 +369,13 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => {
-                  if (authTokenResult?.data?.token) {
-                    fetchCharacterProfile(authTokenResult.data.token).then(setCharacterProfile);
+                  // First try to get token from authTokenResult, then fallback to localStorage
+                  const token = authTokenResult?.data?.token || getStoredJwtToken();
+                  if (token) {
+                    fetchCharacterProfile(token).then(setCharacterProfile);
                   } else {
                     console.error('No JWT token available. Please get auth token first.');
-                    alert('Please get auth token first by clicking "Get Auth Token"');
+                    alert('Please get auth token first by clicking "POST for authentication"');
                   }
                 }}
                 className="text-sm bg-violet-600 hover:bg-violet-700 py-2 px-4 rounded-md text-white border-none"
