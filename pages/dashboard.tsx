@@ -383,6 +383,15 @@ export default function DashboardPage() {
                 GET Character Profile
               </button>
 
+              <button
+                onClick={() => {
+                  window.open('/game/index.html', '_blank');
+                }}
+                className="text-sm bg-violet-600 hover:bg-violet-700 py-2 px-4 rounded-md text-white border-none"
+              >
+                Start Game Now
+              </button>
+
               {Boolean(verifyResult) && (
                 <details className="w-full">
                   <summary className="mt-6 font-bold uppercase text-sm text-gray-600">
