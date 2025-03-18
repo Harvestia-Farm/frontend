@@ -1,4 +1,9 @@
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
   reactStrictMode: true,
+  server: {
+    port: 3001
+  },
 };
+
+module.exports = nextConfig;
